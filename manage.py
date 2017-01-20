@@ -19,7 +19,7 @@ def make_shell_context():
     """ this imports the modules into shell to reduce tediousness """
     return dict(app=app, db=db, Users=Users, Bucketlists=Bucketlists,
                 Items=Items)
-    
+
 manager.add_command("shell", Shell(make_context=make_shell_context))
 manager.add_command('db', MigrateCommand)
 
