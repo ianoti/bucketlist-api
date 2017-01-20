@@ -23,4 +23,3 @@ ENV/
 
 # Test data to be ignored and databases
 *.db
-*.txt
