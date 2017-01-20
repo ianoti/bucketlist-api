@@ -1,11 +1,11 @@
-from flask import Flask
+#! /usr/bin/env python
+from flask import Blueprint
+from flask_restful import Resource
+from . import db
 
-app = Flask(__name__)
+api = Blueprint("api", __name__, url_prefix="/api/v1")
 
-@app.route('/index')
+
+@api.route('/', methods=["GET"])
 def index():
-    return "Move along nothing to see voom voom here"
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    return "nothing to see here move along"

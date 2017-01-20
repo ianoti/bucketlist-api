@@ -1,29 +1,44 @@
-from os import path
+import os
 
-basedir = path.abspath(path.dirname(__file__))  # the path to the directory
+basedir = os.path.abspath(os.path.dirname(__file__))
 
 
-class Config(object):
+class Config:
     """
-    This class holds the base configurations for the project.
-    It allows for the setup of the development environment
-    and the testing environment
+    This holds the default configuration settings that will be inherited
+    for the software environment setup
     """
-    DEBUG = False
-    TESTING = False
-    SECRET_KEY = 'the_checkpoint_is_hot'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'check_point_rules'
+    SQLALCHEMY_COMMIT_ON_TEARDOWN = True
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    @staticmethod
+    def init_app(app):
+        pass
 
 
-class Dev(Config):
+class Development(Config):
     """
-    This class holds the configuration for the development environment
+    The development environment used throughout setup
     """
-    DEVELOPMENT = True
     DEBUG = True
+    # the following configuration defines postgres database for developmement
+    """
+    app.config['SQLALCHEMY_DATABASE_URI'] = ('postgresql://
+                                             bucketlist:bucketlist@localhost
+                                             /bucketlist')
+    """
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
+        'sqlite:///' + os.path.join(basedir, 'data-dev.db')
 
 
-class Test(Config):
-    """
-    This class holds the configuration for the testing environment
-    """
+class Testing(Config):
     TESTING = True
+    SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL') or \
+        'sqlite:///' + os.path.join(basedir, 'data-test.db')
+
+configset = {
+    "development": Development,
+    "testing": Testing,
+    "default": Development
+    }
