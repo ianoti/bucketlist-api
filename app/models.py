@@ -1,16 +1,19 @@
 from . import db
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import (TimedJSONWebSignatureSerializer as Serializer,
+                          SignatureExpired, BadSignature)
+from flask import current_app
 
 
-class Users(db.Model):
-    __tablename__ = "users"
+class User(db.Model):
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(255), unique=True, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
     pass_hash = db.Column(db.String(255), nullable=False)
-    bucketlist = db.relationship("Bucketlists", backref="user", lazy="dynamic",
-                                 cascade="all, delete-orphan")
+    bucketlist = db.relationship('Bucketlist', backref='user', lazy='dynamic',
+                                 cascade='all, delete-orphan')
 
     @property
     def password(self):
@@ -23,32 +26,50 @@ class Users(db.Model):
     def verify_password(self, password):
         return check_password_hash(self.pass_hash, password)
 
+    def generate_confirmation_token(self, expiration=3600):
+        s = Serializer(current_app.config['SECRET_KEY'], expiration)
+        return s.dumps({'id': self.id})
+
+    @staticmethod
+    def token_confirm(self, token):
+        s = Serializer(current_app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token)
+            user_id = data['id']
+            return user_id
+        except SignatureExpired:
+            return False
+        if data.get('id') != self.id:
+            return False
+
     def __repr__(self):
         return "<User %s>" % self.username
 
 
-class Bucketlists(db.Model):
-    __tablename__ = "bucketlists"
+class Bucketlist(db.Model):
+    __tablename__ = 'bucketlists'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(255), nullable=False)
-    date_created = db.Column(db.DateTime, nullable=False)
-    date_modified = db.Column(db.DateTime)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    items = db.relationship("Items", backref="bucketlist", lazy="dynamic",
-                            cascade="all, delete-orphan")
+    name = db.Column(db.String(255), nullable=False)
+    date_created = db.Column(db.DateTime, nullable=False,
+                             default=datetime.utcnow)
+    date_modified = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    items = db.relationship('Item', backref='bucketlist', lazy='dynamic',
+                            cascade='all, delete-orphan')
 
     def __repr__(self):
         return '<Bucketlist %s>' % self.title
 
 
-class Items(db.Model):
-    __tablename__ = "items"
+class Item(db.Model):
+    __tablename__ = 'items'
     id = db.Column(db.Integer, primary_key=True)
-    item_name = db.Column(db.String(255), nullable=False)
-    date_created = db.Column(db.DateTime, nullable=False)
-    date_modified = db.Column(db.DateTime)
-    status = db.Column(db.String(5), default=False)
-    bucket_id = db.Column(db.Integer, db.ForeignKey("bucketlists.id"))
+    name = db.Column(db.String(255), nullable=False)
+    date_created = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    date_modified = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    status = db.Column(db.Boolean, default=False)
+    bucket_id = db.Column(db.Integer, db.ForeignKey('bucketlists.id'),
+                          nullable=False)
 
     def __repr__(self):
         return "<Item %s>" % self.item_name

@@ -1,4 +1,4 @@
-from flask import Flask, Blueprint
+from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
 from config import configset
@@ -21,7 +21,8 @@ def create_app(config_set):
 
     db.init_app(app)
 
-    from app.bucketlist import api
+    from app.views import api, authent
     app.register_blueprint(api)
+    app.register_blueprint(authent)
 
     return app
