@@ -2,9 +2,12 @@
 
 import os
 from app import create_app, db
-from app.models import Users, Bucketlists, Items
+from app.models import User, Bucketlist, Item
+from app.views import LoginUser, RegisterUser, BucketGet
+
 from flask_script import Manager, Shell, prompt_bool
 from flask_migrate import Migrate, MigrateCommand
+from flask_restful import Api
 
 
 # make Flask application from app factory
@@ -13,6 +16,7 @@ app = create_app(os.getenv('FLASK_CONFIG') or 'default')
 manager = Manager(app)
 # initialise migrate class
 migrate = Migrate(app, db)
+api = Api(app=app)
 
 
 def make_shell_context():
@@ -41,11 +45,16 @@ def initdb():
 
 @manager.command
 def dropdb():
-    """ delete all the data in the datbase and destroy all the tables """
+    """ delete all the data in the database and destroy all the tables """
     if prompt_bool("Are you sure you want to destroy all your data"):
         db.drop_all()
         print("the data in the database has been destroyed and tables removed")
 
 
 if __name__ == "__main__":
+    # print(api.__dir__)
+    api.add_resource(LoginUser, "/api/v2/auth/login", endpoint="token")
+    api.add_resource(RegisterUser, "/api/v2/auth/register",
+                     endpoint="register")
+    api.add_resource(BucketGet, "/api/v2/bucketlists", endpoint="bucketlist")
     manager.run()

@@ -10,7 +10,7 @@ class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(255), unique=True, nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False)
+    email = db.Column(db.String(255), nullable=False)
     pass_hash = db.Column(db.String(255), nullable=False)
     bucketlist = db.relationship('Bucketlist', backref='user', lazy='dynamic',
                                  cascade='all, delete-orphan')
@@ -31,7 +31,7 @@ class User(db.Model):
         return s.dumps({'id': self.id})
 
     @staticmethod
-    def token_confirm(self, token):
+    def token_confirm(token):
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
@@ -39,7 +39,7 @@ class User(db.Model):
             return user_id
         except SignatureExpired:
             return False
-        if data.get('id') != self.id:
+        except BadSignature:
             return False
 
     def __repr__(self):
@@ -58,18 +58,19 @@ class Bucketlist(db.Model):
                             cascade='all, delete-orphan')
 
     def __repr__(self):
-        return '<Bucketlist %s>' % self.title
+        return '<Bucketlist %s>' % self.name
 
 
 class Item(db.Model):
     __tablename__ = 'items'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
-    date_created = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    date_created = db.Column(db.DateTime, nullable=False,
+                             default=datetime.utcnow)
     date_modified = db.Column(db.DateTime, onupdate=datetime.utcnow)
     status = db.Column(db.Boolean, default=False)
     bucket_id = db.Column(db.Integer, db.ForeignKey('bucketlists.id'),
                           nullable=False)
 
     def __repr__(self):
-        return "<Item %s>" % self.item_name
+        return "<Item %s>" % self.name
