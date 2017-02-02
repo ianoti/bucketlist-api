@@ -3,7 +3,7 @@
 import os
 from app import create_app, db
 from app.models import User, Bucketlist, Item
-from app.views import LoginUser, RegisterUser, BucketGet
+from app.views import LoginUser, RegisterUser, BucketAction, ItemAction
 
 from flask_script import Manager, Shell, prompt_bool
 from flask_migrate import Migrate, MigrateCommand
@@ -56,5 +56,9 @@ if __name__ == "__main__":
     api.add_resource(LoginUser, "/api/v2/auth/login", endpoint="token")
     api.add_resource(RegisterUser, "/api/v2/auth/register",
                      endpoint="register")
-    api.add_resource(BucketGet, "/api/v2/bucketlists", endpoint="bucketlist")
+    api.add_resource(BucketAction, "/api/v2/bucketlists",
+                     "/api/v2/bucketlists/<id>", endpoint="bucketlist")
+    api.add_resource(ItemAction, "/api/v2/bucketlists/<id>/items",
+                     "/api/v2/bucketlists/<id>/items/<item_id>",
+                     endpoint="items")
     manager.run()

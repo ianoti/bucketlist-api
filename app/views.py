@@ -1,10 +1,10 @@
 #! /usr/bin/env python
-from flask_restful import Resource, reqparse
-from flask import abort, jsonify, request, Blueprint
+from flask_restful import abort, Resource, reqparse, marshal_with
+from flask import abort, jsonify, request
 from . import db
-from app.models import User, Bucketlist
+from app.models import User, Bucketlist, Item
 from app.authenticate import multi_auth, g
-# import json_schema
+from app.format import itemformat, bucketlistformat
 
 
 def save(target):
@@ -13,14 +13,10 @@ def save(target):
     db.session.commit()
 
 
-api_rt = Blueprint("api", __name__, url_prefix="/api/v1")
-authent = Blueprint("authent", __name__, url_prefix="/api/v1/auth")
-
-
-@api_rt.route("/", methods=["GET"])
-@multi_auth.login_required
-def index_check():
-    return "nothing to see here move along %s" % g.user.email
+def delete(target):
+    """ utility function to simplify delete operation to DB"""
+    db.session.delete(target)
+    db.session.commit()
 
 
 class LoginUser(Resource):
@@ -68,14 +64,17 @@ class RegisterUser(Resource):
         db.session.add(user)
         db.session.commit()
         msg = "user " + user.username + " has been successfully added"
-        return {"message": msg}
+        return {"message": msg}, 201
 
 
-class BucketGet(Resource):
+class BucketAction(Resource):
     decorators = [multi_auth.login_required]
 
-    def post(self):
+    def __init__(self):
         self.reqparse = reqparse.RequestParser()
+        super(BucketAction, self).__init__()
+
+    def post(self):
         self.reqparse.add_argument("name", type=str, required=True,
                                    location="json",
                                    help="bucketlist name required")
@@ -85,60 +84,106 @@ class BucketGet(Resource):
         save(bucket)
         msg = ("bucketlist -" + bucket.name + "- has been successfully "
                "created with ID: " + str(bucket.id))
-        return {"message": msg}
+        return {"message": msg}, 201
 
-    def get(self):
-        bckt_list = []
-        items = []
-        buckets = Bucketlist.query.filter_by(user_id=g.user.id).all()
-        if not buckets:
-            return bckt_list
-        for bucket in buckets:
-            bucket_dict = {"id": bucket.id,
-                           "name": bucket.name,
-                           "items": items,
-                           "date_created": bucket.date_created.strftime("%B %d, %Y"),
-                           "date_modified": str(bucket.date_modified),
-                           "created_by": g.user.username}
-            bckt_list.append(bucket_dict)
-        return bckt_list
+    @marshal_with(bucketlistformat)
+    def get(self, id=None):
+        search = request.args.get("q") or None
+        page = request.args.get("page") or 1
+        limit = request.args.get("limit") or 20
+        if id:
+            bucketlist = Bucketlist.query.filter_by(id=id).first()
+            if not bucketlist or (bucketlist.user_id != g.user.id):
+                abort(404, "bucketlist not found")
+            return bucketlist, 200
 
+        if search:
+            bucket_search = Bucketlist.query.filter(Bucketlist.name.ilike(
+                "%" + search + "%")).filter_by(user_id=g.user.id).paginate(
+                int(page), int(limit), False)
+            if len(bucket_search.items) == 0:
+                abort(404, "bucketlist of that name not found")
+            else:
+                bckt = [bckt for bckt in bucket_search.items]
+                return bckt, 200
 
+        bucketlists = Bucketlist.query.filter_by(user_id=g.user.id).all()
+        return bucketlists, 200
 
+    def put(self, id):
+        self.reqparse.add_argument("name", type=str, required=True,
+                                   location="json",
+                                   help="bucketlist name required")
+        args = self.reqparse.parse_args()
+        bucketlist = Bucketlist.query.filter_by(id=id).first()
+        if not bucketlist or (bucketlist.user_id != g.user.id):
+            abort(404, "bucketlist not found")
+        bucketlist.name = args.name
+        save(bucketlist)
+        msg = ("bucketlist ID: " + str(bucketlist.id) + " has been updated")
+        return {"message": msg}, 200
 
-@authent.route("/register", methods=["POST"])
-def register_user():
-    username = request.json.get("username")
-    email = request.json.get("email")
-    password = request.json.get("password")
-    if username is None or password is None or email is None:
-        return jsonify({"message": "error in input"}), 400  # missing arguments
-    if User.query.filter_by(username=username).first() is not None:
-        # existing user
-        return jsonify({"message": "username already taken"}), 403
-    if User.query.filter_by(email=email).first() is not None:
-        # existing email
-        return jsonify({"message": "email already in use"}), 403
-    user = User(username=username, email=email, password=password)
-    db.session.add(user)
-    db.session.commit()
-    return jsonify({"message": "successfully registered user",
-                    "username": user.username, "email": user.email}), 201
-
-
-@authent.route('/login', methods=["POST"])
-def return_token():
-    username = request.json.get("username")
-    password = request.json.get("password")
-    user = User.query.filter_by(username=username).first()
-    if username is None or password is None or user is None:
-        return jsonify({"message": "wrong username password combination"}), 400 # missing arguments
-    if not user.verify_password(password):
-        return jsonify({"message": "wrong login details"}), 401
-    token = user.generate_confirmation_token()
-    return jsonify({"token": token.decode("ascii")}), 200
+    def delete(self, id=None):
+        if not id:
+            abort(400, "bad request")
+        bucketlist = Bucketlist.query.filter_by(id=id).first()
+        if not bucketlist or (bucketlist.user_id != g.user.id):
+            abort(404, "bucketlist not found")
+        delete(bucketlist)
+        msg = ("bucketlist : " + bucketlist.name + " has been deleted")
+        return {"message": msg}, 200
 
 
-@api_rt.route('/bucketlists', methods=["GET", "POST"])
-def dummy_func():
-    return jsonify({"message": "something small"})
+class ItemAction(Resource):
+    decorators = [multi_auth.login_required]
+
+    def __init__(self):
+        self.reqparse = reqparse.RequestParser()
+        super(ItemAction, self).__init__()
+
+    def post(self, id=None):
+        self.reqparse.add_argument("name", type=str, required=True,
+                                   location="json",
+                                   help="Item name required")
+        args = self.reqparse.parse_args()
+        if not id:
+            abort(400, "bad request")
+        bucketlist = Bucketlist.query.filter_by(id=id).first()
+        if not bucketlist or (bucketlist.user_id != g.user.id):
+            abort(404, "bucketlist not found, confirm the id")
+        item = Item(name=args.name, bucket_id=id)
+        save(item)
+        msg = ("item has been added to the bucketlist")
+        return {"message": msg}, 201
+
+    def put(self, id=None, item_id=None):
+        self.reqparse.add_argument("name", type=str, location="json",
+                                   help="item name required")
+        self.reqparse.add_argument("status", type=bool, location="json",
+                                   help="item status required")
+        args = self.reqparse.parse_args()
+        if not id or not item_id:
+            abort(400, "bad request")
+        bucket = Bucketlist.query.filter_by(id=id).first()
+        item = Item.query.filter_by(id=item_id).first()
+        if not bucket or (bucket.user_id != g.user.id) or not item:
+            abort(404, "item not found, confirm bucketlist and item id")
+        if args["name"] is None and args["status"] is None:
+            abort(400, "provide at least one parameter to change")
+        if args["name"]:
+            item.name = args["name"]
+        if args["status"]:
+            item.status = args["status"]
+
+        return {"message": "item has been updated"}, 200
+
+    def delete(self, id=None, item_id=None):
+        if not id or not item_id:
+            abort(400, "bad request")
+        bucket = Bucketlist.query.filter_by(id=id).first()
+        item = Item.query.filter_by(id=item_id).first()
+        if not bucket or (bucket.user_id != g.user.id) or not item:
+            abort(404, "item not found, confirm bucketlist and item id")
+        delete(item)
+
+        return {"message": "item has been deleted successfully"}, 200
