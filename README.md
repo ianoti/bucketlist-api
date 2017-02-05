@@ -1,1 +1,1 @@
-python hello.py db upgrade to runinitial create database and tables
+[![CircleCI](https://circleci.com/gh/ianoti/bucketlist-api/tree/sandbox.svg?style=svg)](https://circleci.com/gh/ianoti/bucketlist-api/tree/sandbox)
