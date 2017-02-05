@@ -2,7 +2,6 @@ from setup_test import BaseTestClass
 from app.models import User, Bucketlist, Item
 
 import json
-from time import sleep
 
 
 class BucketlistsTest(BaseTestClass):
@@ -105,6 +104,12 @@ class BucketlistsTest(BaseTestClass):
         self.assertListEqual([1, 1], [oldbcnt-newbcnt, olditcnt-newitcnt])
         self.assertIn("testlist has been deleted", bckt_deldata["message"])
 
+        nobckt_del = self.app.delete("/api/v1/bucketlists/1",
+                                     headers=self.header)
+        nobckt_del_data = json.loads(nobckt_del.data)
+        self.assertEqual(404, nobckt_del.status_code)
+        self.assertIn("bucketlist not found", nobckt_del_data["message"])
+
     def test_update_bucketlist(self):
         """ check that bucketlist updates"""
         data = json.dumps({"name": "updated testlist"})
@@ -136,3 +141,84 @@ class BucketlistsTest(BaseTestClass):
         self.assertIn("name required", blank_data["message"]["name"])
         self.assertIn("no blank fields", noname_data["message"])
         self.assertIn("name is invalid", name_space_data["message"])
+        # assert that modified date is more current
+        bckt = Bucketlist.query.filter_by(id=1).first()
+        self.assertTrue(bckt.date_modified > bckt.date_created)
+
+    def test_user_can_not_access_other_users_buckets(self):
+        """ the logged in user can't access anothers users bucketlists"""
+        # log in new user and use token
+        data = json.dumps({"username": "janedoe", "password": "foobar"})
+        resp = self.app.post("/api/v1/auth/login", data=data,
+                             content_type=self.mime_type)
+        respdata = json.loads(resp.data)
+        token = "Bearer " + respdata["token"]
+        headerjane = {"Authorization": token}
+        # create jane's bucketlist
+        new_bckt = json.dumps({"name": "jane's list"})
+        bckt = self.app.post("api/v1/bucketlists", data=new_bckt,
+                             headers=headerjane, content_type=self.mime_type)
+        self.assertEqual(201, bckt.status_code)
+        self.assertEqual(2, Bucketlist.query.count())
+        # john's attempted access
+        jhn_bckt = self.app.get("api/v1/bucketlists/2", headers=self.header)
+        jhn_bcktdata = json.loads(jhn_bckt.data)
+        self.assertEqual(404, jhn_bckt.status_code)
+        self.assertIn("bucketlist not found", jhn_bcktdata["message"])
+
+    def test_bad_post_route(self):
+        """test won't post if id is provided"""
+        name = json.dumps({"name": "something to do"})
+        resp = self.app.post("/api/v1/bucketlists/1", data=name,
+                             headers=self.header, content_type=self.mime_type)
+        resp_data = json.loads(resp.data)
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("bad request", resp_data["message"])
+
+    def test_search_bucketlist(self):
+        """ test that the search functionality works for bucketlists"""
+        # any buckets with list in their name
+        search = self.app.get("/api/v1/bucketlists?q=list",
+                              headers=self.header)
+        search_data = json.loads(search.data)
+        self.assertEqual(200, search.status_code)
+        self.assertEqual("testlist", search_data[0]["name"])
+        self.assertEqual("johndoe", search_data[0]["created_by"])
+
+        missing = self.app.get("/api/v1/bucketlists?q=missing",
+                               headers=self.header)
+        missing_data = json.loads(missing.data)
+        self.assertEqual(404, missing.status_code)
+        self.assertIn("that name not found", missing_data["message"])
+
+    def test_pagination_limit_for_bucketlist(self):
+        """ test that pagination and limit arguments work for get bucketlists
+        url"""
+        # add bucketlists for testing in addition to one from setup
+        name_1 = json.dumps({"name": "lister"})
+        self.app.post("/api/v1/bucketlists", data=name_1, headers=self.header,
+                      content_type=self.mime_type)
+        name_2 = json.dumps({"name": "bloom"})
+        self.app.post("/api/v1/bucketlists", data=name_2, headers=self.header,
+                      content_type=self.mime_type)
+
+        page_1 = self.app.get("/api/v1/bucketlists?page=1&limit=1",
+                              headers=self.header)
+        page_1_data = json.loads(page_1.data)
+        page_2 = self.app.get("/api/v1/bucketlists?page=2&limit=1",
+                              headers=self.header)
+        page_2_data = json.loads(page_2.data)
+        page_3 = self.app.get("/api/v1/bucketlists?page=3&limit=1",
+                              headers=self.header)
+        page_3_data = json.loads(page_3.data)
+        page_all = self.app.get("/api/v1/bucketlists?page=1&limit=3",
+                                headers=self.header)
+        page_all_data = json.loads(page_all.data)
+
+        self.assertListEqual([200, 200, 200],
+                             [page_1.status_code, page_2.status_code,
+                              page_3.status_code])
+        self.assertListEqual(["testlist", "lister", "bloom"],
+                             [page_1_data[0]["name"], page_2_data[0]["name"],
+                              page_3_data[0]["name"]])
+        self.assertEqual(3, len(page_all_data))
