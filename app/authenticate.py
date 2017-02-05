@@ -21,7 +21,6 @@ def verify_token(token):
 def verify_password(username, password):
     user = User.query.filter_by(username=username).first()
     if not user:
-        print("just a check")
         return False
     if not user.verify_password(password):
         return False
