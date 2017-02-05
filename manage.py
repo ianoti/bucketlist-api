@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 
 import os
-from app import create_app, db
+from app import create_app, db, api
 from app.models import User, Bucketlist, Item
 from app.views import LoginUser, RegisterUser, BucketAction, ItemAction
 
 from flask_script import Manager, Shell, prompt_bool
 from flask_migrate import Migrate, MigrateCommand
-from flask_restful import Api
 
 
 # make Flask application from app factory
@@ -16,7 +15,6 @@ app = create_app(os.getenv('FLASK_CONFIG') or 'default')
 manager = Manager(app)
 # initialise migrate class
 migrate = Migrate(app, db)
-api = Api(app=app)
 
 
 def make_shell_context():
@@ -52,13 +50,11 @@ def dropdb():
 
 
 if __name__ == "__main__":
-    # print(api.__dir__)
-    api.add_resource(LoginUser, "/api/v2/auth/login", endpoint="token")
-    api.add_resource(RegisterUser, "/api/v2/auth/register",
-                     endpoint="register")
-    api.add_resource(BucketAction, "/api/v2/bucketlists",
-                     "/api/v2/bucketlists/<id>", endpoint="bucketlist")
-    api.add_resource(ItemAction, "/api/v2/bucketlists/<id>/items",
-                     "/api/v2/bucketlists/<id>/items/<item_id>",
+    api.add_resource(LoginUser, "/auth/login", endpoint="token")
+    api.add_resource(RegisterUser, "/auth/register", endpoint="register")
+    api.add_resource(BucketAction, "/bucketlists", "/bucketlists/<id>",
+                     endpoint="bucketlist")
+    api.add_resource(ItemAction, "/bucketlists/<id>/items",
+                     "/bucketlists/<id>/items/<item_id>",
                      endpoint="items")
     manager.run()
