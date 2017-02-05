@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-from flask_restful import abort, Resource, reqparse, marshal_with
+from flask_restful import abort, inputs, Resource, reqparse, marshal_with
 from flask import abort, jsonify, request
 from . import db, expiry_time
 from app.models import User, Bucketlist, Item
@@ -68,7 +68,9 @@ class BucketAction(Resource):
         self.reqparse = reqparse.RequestParser()
         super(BucketAction, self).__init__()
 
-    def post(self):
+    def post(self, id=None):
+        if id:
+            abort(400, "bad request")
         self.reqparse.add_argument("name", type=str, required=True,
                                    location="json",
                                    help="bucketlist name required")
@@ -104,6 +106,12 @@ class BucketAction(Resource):
             else:
                 bckt = [bckt for bckt in bucket_search.items]
                 return bckt, 200
+
+        if page or limit:
+            bucket_collection = Bucketlist.query.filter_by(
+                user_id=g.user.id).paginate(int(page), int(limit), False)
+            bucket_disp = [bckt for bckt in bucket_collection.items]
+            return bucket_disp, 200
 
         bucketlists = Bucketlist.query.filter_by(user_id=g.user.id).all()
         return bucketlists, 200
@@ -164,12 +172,17 @@ class ItemAction(Resource):
                                    location="json",
                                    help="Item name required")
         args = self.reqparse.parse_args()
+        name = args["name"]
         if not id:
             abort(400, "bad request")
+        if not is_not_empty(name):
+            return {"message": "no blank fields allowed"}, 400
+        if name.isspace():
+            return {"message": "name is invalid"}, 400
         bucketlist = Bucketlist.query.filter_by(id=id).first()
         if not bucketlist or (bucketlist.user_id != g.user.id):
             abort(404, "bucketlist not found, confirm the id")
-        item = Item(name=args.name, bucket_id=id)
+        item = Item(name=name, bucket_id=id)
         save(item)
         msg = ("item has been added to the bucketlist")
         return {"message": msg}, 201
@@ -177,21 +190,29 @@ class ItemAction(Resource):
     def put(self, id=None, item_id=None):
         self.reqparse.add_argument("name", type=str, location="json",
                                    help="item name required")
-        self.reqparse.add_argument("status", type=bool, location="json",
-                                   help="item status required")
+        self.reqparse.add_argument("status", type=inputs.boolean,
+                                   location="json",
+                                   help="status required as true or false")
         args = self.reqparse.parse_args()
+        name = args["name"]
+        status = args["status"]
         if not id or not item_id:
             abort(400, "bad request")
+        if name is None and status is None:
+            abort(400, "provide at least one parameter to change")
+
         bucket = Bucketlist.query.filter_by(id=id).first()
         item = Item.query.filter_by(id=item_id).first()
         if not bucket or (bucket.user_id != g.user.id) or not item:
             abort(404, "item not found, confirm bucketlist and item id")
-        if args["name"] is None and args["status"] is None:
-            abort(400, "provide at least one parameter to change")
-        if args["name"]:
-            item.name = args["name"]
-        if args["status"]:
-            item.status = args["status"]
+        if not is_not_empty(name):
+            return {"message": "name can't be blank"}, 400
+        if name:
+            if name.isspace():
+                return {"message": "name is invalid"}, 400
+            item.name = name
+        if status:
+            item.status = status
 
         return {"message": "item has been updated"}, 200
 
