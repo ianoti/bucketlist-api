@@ -42,3 +42,5 @@ configset = {
     "testing": Testing,
     "default": Development
     }
+
+expiry_time = 3600

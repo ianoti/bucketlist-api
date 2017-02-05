@@ -1,15 +1,15 @@
-from flask import Flask
+from flask import Flask, Blueprint
 from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Api
 
-from config import configset
-# make the api blueprint to make routes accessible
+from config import configset, expiry_time
 
+# use the blueprint to make url accessible between application and test
+api_blue_print = Blueprint("api", __name__, url_prefix="/api/v1")
+# initialise the Api class
+api = Api(api_blue_print)
 # initialise SQLAlchemy class
 db = SQLAlchemy()
-
-# initialise the Api class
-# api = Api()
 
 
 def create_app(config_set):
@@ -22,5 +22,6 @@ def create_app(config_set):
     configset[config_set].init_app(app)
 
     db.init_app(app)
+    app.register_blueprint(api_blue_print)
 
     return app

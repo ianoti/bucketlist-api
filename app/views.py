@@ -1,22 +1,11 @@
 #! /usr/bin/env python
 from flask_restful import abort, Resource, reqparse, marshal_with
 from flask import abort, jsonify, request
-from . import db
+from . import db, expiry_time
 from app.models import User, Bucketlist, Item
 from app.authenticate import multi_auth, g
-from app.format import itemformat, bucketlistformat
-
-
-def save(target):
-    """ utility function to simplify save operation to DB"""
-    db.session.add(target)
-    db.session.commit()
-
-
-def delete(target):
-    """ utility function to simplify delete operation to DB"""
-    db.session.delete(target)
-    db.session.commit()
+from app.validate_format import (itemformat, bucketlistformat, validate_string,
+                                 save, delete, is_not_empty)
 
 
 class LoginUser(Resource):
@@ -32,11 +21,10 @@ class LoginUser(Resource):
         args = self.reqparse.parse_args()
         username = args.username
         password = args.password
-
         user = User.query.filter_by(username=username).first()
         if not user or not user.verify_password(password):
             return {"message": "wrong login details"}, 401
-        token = user.generate_confirmation_token()
+        token = user.generate_confirmation_token(expiry_time)
         return {"token": token.decode("ascii")}, 200
 
 
@@ -53,16 +41,22 @@ class RegisterUser(Resource):
 
     def post(self):
         args = self.reqparse.parse_args()
-        username = args.username
-        password = args.password
-        email = args.email
-
+        username = args["username"]
+        password = args["password"]
+        email = args["email"]
+        if not validate_string(username):
+            return {"message": ("only numbers, letters, '-','_' allowed"
+                                " in username")}, 400
+        if not is_not_empty(username, password, email):
+            return {"message": "no blank fields allowed"}, 400
+        # validate the email field
+        if not ("@" in email):
+            return {"message": "email is invalid"}, 400
         user_reg = User.query.filter_by(username=username).first()
         if user_reg is not None:
-            return {"message": "username already taken"}, 401
+            return {"message": "username already taken"}, 403
         user = User(username=username, email=email, password=password)
-        db.session.add(user)
-        db.session.commit()
+        save(user)
         msg = "user " + user.username + " has been successfully added"
         return {"message": msg}, 201
 
@@ -80,6 +74,10 @@ class BucketAction(Resource):
                                    help="bucketlist name required")
         args = self.reqparse.parse_args()
         name = args.name
+        if not is_not_empty(name):
+            return {"message": "no blank fields allowed"}, 400
+        if name.isspace():
+            return {"message": "name is invalid"}, 400
         bucket = Bucketlist(name=name, user_id=g.user.id)
         save(bucket)
         msg = ("bucketlist -" + bucket.name + "- has been successfully "
@@ -115,10 +113,15 @@ class BucketAction(Resource):
                                    location="json",
                                    help="bucketlist name required")
         args = self.reqparse.parse_args()
+        name = args["name"]
+        if not is_not_empty(name):
+            return {"message": "no blank fields allowed"}, 400
+        if name.isspace():
+            return {"message": "name is invalid"}, 400
         bucketlist = Bucketlist.query.filter_by(id=id).first()
         if not bucketlist or (bucketlist.user_id != g.user.id):
             abort(404, "bucketlist not found")
-        bucketlist.name = args.name
+        bucketlist.name = name
         save(bucketlist)
         msg = ("bucketlist ID: " + str(bucketlist.id) + " has been updated")
         return {"message": msg}, 200
@@ -140,6 +143,21 @@ class ItemAction(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
         super(ItemAction, self).__init__()
+
+    @marshal_with(itemformat)
+    def get(self, id=None):
+        """
+        optional method to view single items in bucketlist if bucket is known
+        """
+        if not id:
+            abort(400, "bucket id is required to get items")
+
+        # use bucketlist table to verify user has access to item
+        bucket = Bucketlist.query.filter_by(id=id).first()
+        if not bucket or (bucket.user_id != g.user.id):
+            abort(404, "bucketlist not found, confirm the id")
+        items = Item.query.filter_by(bucket_id=id).all()
+        return items
 
     def post(self, id=None):
         self.reqparse.add_argument("name", type=str, required=True,
