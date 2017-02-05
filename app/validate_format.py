@@ -39,5 +39,5 @@ def delete(target):
 
 
 def is_not_empty(*args):
-    """ check that the arguments passed are not empty """
+    """ check that the arguments passed are not empty and return true"""
     return all(len(value) > 0 for value in args)
