@@ -1,8 +1,7 @@
 from . import db
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-from itsdangerous import (TimedJSONWebSignatureSerializer as Serializer,
-                          SignatureExpired, BadSignature)
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from flask import current_app
 
 
@@ -35,14 +34,10 @@ class User(db.Model):
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
-        except SignatureExpired:
-            """ valid token but expired """
-            return False
-        except BadSignature:
+        except:
             """ invalid token """
             return False
-        user_id = data['id']
-        return user_id
+        return data["id"]
 
     def __repr__(self):
         return "<User %s>" % self.username

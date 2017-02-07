@@ -41,9 +41,9 @@ class RegisterUser(Resource):
 
     def post(self):
         args = self.reqparse.parse_args()
-        username = args["username"]
-        password = args["password"]
-        email = args["email"]
+        username, password, email = (args["username"], args["password"],
+                                     args["email"])
+
         if not validate_string(username):
             return {"message": ("only numbers, letters, '-','_' allowed"
                                 " in username")}, 400
