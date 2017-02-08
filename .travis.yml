@@ -8,7 +8,8 @@ install:
   - pip install coveralls
 
 script:
-  - nosetests --with-coverage
+  - echo PYTHONPATH=`pwd`
+  - nosetests --with-coverage tests/ --cover-package=app --cover-xml --cover-erase
 
 after_success:
   - coveralls
