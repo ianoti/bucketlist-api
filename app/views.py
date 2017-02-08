@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 from flask_restful import abort, inputs, Resource, reqparse, marshal_with
 from flask import abort, jsonify, request
-from . import db, expiry_time
+from app import db, expiry_time
 from app.models import User, Bucketlist, Item
 from app.authenticate import multi_auth, g
 from app.validate_format import (itemformat, bucketlistformat, validate_string,
@@ -152,29 +152,12 @@ class ItemAction(Resource):
         self.reqparse = reqparse.RequestParser()
         super(ItemAction, self).__init__()
 
-    @marshal_with(itemformat)
-    def get(self, id=None):
-        """
-        optional method to view single items in bucketlist if bucket is known
-        """
-        if not id:
-            abort(400, "bucket id is required to get items")
-
-        # use bucketlist table to verify user has access to item
-        bucket = Bucketlist.query.filter_by(id=id).first()
-        if not bucket or (bucket.user_id != g.user.id):
-            abort(404, "bucketlist not found, confirm the id")
-        items = Item.query.filter_by(bucket_id=id).all()
-        return items
-
     def post(self, id=None):
         self.reqparse.add_argument("name", type=str, required=True,
                                    location="json",
                                    help="Item name required")
         args = self.reqparse.parse_args()
         name = args["name"]
-        if not id:
-            abort(400, "bad request")
         if not is_not_empty(name):
             return {"message": "no blank fields allowed"}, 400
         if name.isspace():
@@ -217,8 +200,6 @@ class ItemAction(Resource):
         return {"message": "item has been updated"}, 200
 
     def delete(self, id=None, item_id=None):
-        if not id or not item_id:
-            abort(400, "bad request")
         bucket = Bucketlist.query.filter_by(id=id).first()
         item = Item.query.filter_by(id=item_id).first()
         if not bucket or (bucket.user_id != g.user.id) or not item:
