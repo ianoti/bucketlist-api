@@ -1,4 +1,4 @@
-from setup_test import BaseTestClass
+from tests.setup_test import BaseTestClass
 from app.models import User
 import json
 

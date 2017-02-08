@@ -1,4 +1,4 @@
-from setup_test import BaseTestClass
+from tests.setup_test import BaseTestClass
 from app.models import User, Bucketlist, Item
 
 import json
@@ -48,6 +48,7 @@ class BucketlistsTest(BaseTestClass):
         bckt_data = json.loads(bckt.data)
         self.assertEqual(200, respnew.status_code)
         self.assertEqual("testbucket", bckt_data["name"])
+        self.assertEqual("johndoe", bckt_data["created_by"])
 
         bckt_absent = self.app.get("api/v1/bucketlists/12",
                                    headers=self.header)
@@ -110,6 +111,11 @@ class BucketlistsTest(BaseTestClass):
         self.assertEqual(404, nobckt_del.status_code)
         self.assertIn("bucketlist not found", nobckt_del_data["message"])
 
+        bad_del = self.app.delete("/api/v1/bucketlists", headers=self.header)
+        bad_del_data = json.loads(bad_del.data)
+        self.assertEqual(400, bad_del.status_code)
+        self.assertEqual("bad request", bad_del_data["message"])
+
     def test_update_bucketlist(self):
         """ check that bucketlist updates"""
         data = json.dumps({"name": "updated testlist"})
@@ -120,6 +126,11 @@ class BucketlistsTest(BaseTestClass):
         valid = self.app.put("/api/v1/bucketlists/1", data=data,
                              headers=self.header, content_type=self.mime_type)
         valid_data = json.loads(valid.data)
+
+        no_bucket = self.app.put("/api/v1/bucketlists/13", data=data,
+                                 headers=self.header,
+                                 content_type=self.mime_type)
+        no_bucket_data = json.loads(no_bucket.data)
 
         blank = self.app.put("/api/v1/bucketlists/1", data=data_empty,
                              headers=self.header, content_type=self.mime_type)
@@ -134,9 +145,11 @@ class BucketlistsTest(BaseTestClass):
                                   content_type=self.mime_type)
         name_space_data = json.loads(name_space.data)
 
-        self.assertListEqual([200, 400, 400, 400],
+        self.assertListEqual([200, 400, 400, 400, 404],
                              [valid.status_code, blank.status_code,
-                              noname.status_code, name_space.status_code])
+                              noname.status_code, name_space.status_code,
+                              no_bucket.status_code])
+        self.assertIn("bucketlist not found", no_bucket_data["message"])
         self.assertIn("has been updated", valid_data["message"])
         self.assertIn("name required", blank_data["message"]["name"])
         self.assertIn("no blank fields", noname_data["message"])
