@@ -10,6 +10,7 @@ __pycache__/
 
 # Unit test / coverage reports
 .coverage
+cover/
 .coverage.*
 .cache
 nosetests.xml
@@ -23,5 +24,4 @@ ENV/
 
 # Test data to be ignored and databases
 *.db
-*.txt
-*.dtat
+migrations/
