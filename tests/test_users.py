@@ -73,11 +73,19 @@ class UserRegisterTest(BaseTestClass):
         """test that username can't contain special characters"""
         data = json.dumps({"username": "#@!^", "password": "foobar",
                            "email": "foobar"})
+        data_blank = json.dumps({"username": "ian", "password": " ",
+                                 "email": "ian@example.com"})
         response = self.app.post("/api/v1/auth/register", data=data,
                                  content_type=self.mime_type)
+        response_data_blank = self.app.post("/api/v1/auth/register",
+                                            data=data_blank,
+                                            content_type=self.mime_type)
         resp_data = json.loads(response.data)
-        self.assertEqual(400, response.status_code)
+        respblank_data = json.loads(response_data_blank.data)
+        self.assertListEqual([400, 400], [response.status_code,
+                                          response_data_blank.status_code])
         self.assertIn("allowed in username", resp_data["message"])
+        self.assertIn("spaces not allowed", respblank_data["message"])
         self.assertEqual(User.query.count(), 2)
 
     def test_blank_arguments_not_allowed(self):

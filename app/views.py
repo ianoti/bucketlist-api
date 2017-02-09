@@ -49,6 +49,8 @@ class RegisterUser(Resource):
                                 " in username")}, 400
         if not is_not_empty(username, password, email):
             return {"message": "no blank fields allowed"}, 400
+        if username.isspace() or password.isspace() or email.isspace():
+            return {"message": "invalid fields spaces not allowed"}, 400
         # validate the email field
         if not ("@" in email):
             return {"message": "email is invalid"}, 400
