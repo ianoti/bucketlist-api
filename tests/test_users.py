@@ -143,13 +143,24 @@ class UserLoginTest(BaseTestClass):
         self.assertTrue(len(resp_data["token"]) > 20)
 
     def test_unregistered_user_cant_get_token(self):
-        """ test that unregistered users can't obtain a token"""
+        """
+        test that unregistered users can't obtain a token check credentials
+        as well"""
         data = json.dumps({"username": "foobar", "password": "foobar"})
         response = self.app.post("api/v1/auth/login", data=data,
                                  content_type=self.mime_type)
         resp_data = json.loads(response.data)
-        self.assertEqual(response.status_code, 401)
+        data_wrongpass = json.dumps({"username": "johndoe", "password": "foo"})
+        response_wrongpass = self.app.post("api/v1/auth/login",
+                                           data=data_wrongpass,
+                                           content_type=self.mime_type)
+        response_wrongpass_data = json.loads(response_wrongpass.data)
+        self.assertListEqual([response.status_code,
+                              response_wrongpass.status_code],
+                             [401, 401])
         self.assertEqual(resp_data["message"], "wrong login details")
+        self.assertEqual(response_wrongpass_data["message"],
+                         "wrong login details")
 
     def test_missing_details_login(self):
         """ test that API catches missing keys errors """

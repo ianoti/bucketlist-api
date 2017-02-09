@@ -25,8 +25,15 @@ class BucketlistsTest(BaseTestClass):
         resp = self.app.get("/api/v1/bucketlists", headers=self.header)
         self.assertEqual(200, resp.status_code)
 
+    def test_bad_token(self):
+        """ test access denied if token tampered with"""
+        test_token = self.token + "12"
+        bad_header = {"Authorization": test_token}
+        resp = self.app.get("/api/v1/bucketlists", headers=bad_header)
+        self.assertEqual(401, resp.status_code)
+
     def test_successfully_add_view_bucketlist(self):
-        """ test that bucketlits can be added and viewed"""
+        """ test that bucketlist can be added and viewed"""
         old = Bucketlist.query.count()
 
         data = json.dumps({"name": "testbucket"})
