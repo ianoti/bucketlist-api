@@ -10,7 +10,7 @@ __pycache__/
 
 # Unit test / coverage reports
 .coverage
-cover/
+coverage/
 .coverage.*
 .cache
 nosetests.xml
