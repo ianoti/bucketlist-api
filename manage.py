@@ -17,10 +17,12 @@ manager = Manager(app)
 # initialise migrate class
 migrate = Migrate(app, db)
 
+
 # make custom error json codes
 @app.errorhandler(404)
 def page_not_found(e):
     return jsonify(error=404, message=str(e)), 404
+
 
 @app.errorhandler(500)
 def server_error(e):
