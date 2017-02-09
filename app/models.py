@@ -39,9 +39,6 @@ class User(db.Model):
             return False
         return data["id"]
 
-    def __repr__(self):
-        return "<User %s>" % self.username
-
 
 class Bucketlist(db.Model):
     __tablename__ = 'bucketlists'
@@ -55,9 +52,6 @@ class Bucketlist(db.Model):
     items = db.relationship('Item', backref='bucketlist', lazy='dynamic',
                             cascade='all, delete-orphan')
 
-    def __repr__(self):
-        return '<Bucketlist %s>' % self.name
-
 
 class Item(db.Model):
     __tablename__ = 'items'
@@ -70,6 +64,3 @@ class Item(db.Model):
     status = db.Column(db.Boolean, default=False)
     bucket_id = db.Column(db.Integer, db.ForeignKey('bucketlists.id'),
                           nullable=False)
-
-    def __repr__(self):
-        return "<Item %s>" % self.name

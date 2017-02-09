@@ -3,7 +3,7 @@ from flask_restful import abort, inputs, Resource, reqparse, marshal_with
 from flask import abort, jsonify, request
 from app import db, expiry_time
 from app.models import User, Bucketlist, Item
-from app.authenticate import multi_auth, g
+from app.authenticate import token_auth, g
 from app.utils import validate_string, save, delete, is_not_empty
 from app.serialiser import bucketlistformat
 
@@ -62,7 +62,7 @@ class RegisterUser(Resource):
 
 
 class BucketAction(Resource):
-    decorators = [multi_auth.login_required]
+    decorators = [token_auth.login_required]
 
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
@@ -113,9 +113,6 @@ class BucketAction(Resource):
             bucket_disp = [bckt for bckt in bucket_collection.items]
             return bucket_disp, 200
 
-        bucketlists = Bucketlist.query.filter_by(user_id=g.user.id).all()
-        return bucketlists, 200
-
     def put(self, id):
         self.reqparse.add_argument("name", type=str, required=True,
                                    location="json",
@@ -146,7 +143,7 @@ class BucketAction(Resource):
 
 
 class ItemAction(Resource):
-    decorators = [multi_auth.login_required]
+    decorators = [token_auth.login_required]
 
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
