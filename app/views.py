@@ -1,14 +1,16 @@
 #! /usr/bin/env python
+import re
 from flask_restful import abort, inputs, Resource, reqparse, marshal_with
 from flask import abort, jsonify, request
 from app import db, expiry_time
 from app.models import User, Bucketlist, Item
 from app.authenticate import token_auth, g
-from app.utils import validate_string, save, delete, is_not_empty
+from app.utils import save, delete, is_not_empty
 from app.serialiser import bucketlistformat
 
 
 class LoginUser(Resource):
+    """ this class handles the user login and producing the token"""
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument('username', type=str, required=True,
@@ -18,9 +20,9 @@ class LoginUser(Resource):
         super(LoginUser, self).__init__()
 
     def post(self):
+        """ processes the user details passed and returns an access token"""
         args = self.reqparse.parse_args()
-        username = args.username
-        password = args.password
+        username, password = args["username"], args["password"]
         user = User.query.filter_by(username=username).first()
         if not user or not user.verify_password(password):
             return {"message": "wrong login details"}, 401
@@ -29,6 +31,7 @@ class LoginUser(Resource):
 
 
 class RegisterUser(Resource):
+    """ this class handles the user registration """
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument("username", type=str, required=True,
@@ -41,19 +44,20 @@ class RegisterUser(Resource):
 
     def post(self):
         args = self.reqparse.parse_args()
-        username, password, email = (args["username"], args["password"],
-                                     args["email"])
+        username, password, email = (args["username"].lower(),
+                                     args["password"], args["email"])
 
-        if not validate_string(username):
-            return {"message": ("only numbers, letters, '-','_' allowed"
+        # validate the username using regex
+        if not re.match("^[a-zA-Z0-9_.-]+$", username):
+            return {"message": ("only numbers, letters, '-','_' , '.' allowed"
                                 " in username")}, 400
-        if not is_not_empty(username, password, email):
-            return {"message": "no blank fields allowed"}, 400
-        if username.isspace() or password.isspace() or email.isspace():
-            return {"message": "invalid fields spaces not allowed"}, 400
-        # validate the email field
-        if not ("@" in email):
+        # validate the email field using regular expressions
+        if not re.match("\S+[@]\S+[.]\S+", email):
             return {"message": "email is invalid"}, 400
+        # validate the password field with length constraint
+        if len(password) < 5:
+            return {"message": "password must be 5 characters or more"}, 400
+
         user_reg = User.query.filter_by(username=username).first()
         if user_reg is not None:
             return {"message": "username already taken"}, 403
@@ -77,7 +81,7 @@ class BucketAction(Resource):
                                    location="json",
                                    help="bucketlist name required")
         args = self.reqparse.parse_args()
-        name = args.name
+        name = args["name"]
         if not is_not_empty(name):
             return {"message": "no blank fields allowed"}, 400
         if name.isspace():
@@ -115,7 +119,9 @@ class BucketAction(Resource):
             bucket_disp = [bckt for bckt in bucket_collection.items]
             return bucket_disp, 200
 
-    def put(self, id):
+    def put(self, id=None):
+        if not id:
+            return {"message": "bad request"}, 400
         self.reqparse.add_argument("name", type=str, required=True,
                                    location="json",
                                    help="bucketlist name required")
@@ -176,8 +182,7 @@ class ItemAction(Resource):
                                    location="json",
                                    help="status required as true or false")
         args = self.reqparse.parse_args()
-        name = args["name"]
-        status = args["status"]
+        name, status = args["name"], args["status"]
         if not id or not item_id:
             abort(400, "bad request")
         if name is None and status is None:
@@ -187,14 +192,15 @@ class ItemAction(Resource):
         item = Item.query.filter_by(id=item_id).first()
         if not bucket or (bucket.user_id != g.user.id) or not item:
             abort(404, "item not found, confirm bucketlist and item id")
-        if not is_not_empty(name):
-            return {"message": "name can't be blank"}, 400
-        if name:
+
+        if status is True or status is False:
+            item.status = status
+        if name is not None:
+            if not is_not_empty(name):
+                return {"message": "name can't be blank"}, 400
             if name.isspace():
                 return {"message": "name is invalid"}, 400
             item.name = name
-        if status:
-            item.status = status
 
         return {"message": "item has been updated"}, 200
 
