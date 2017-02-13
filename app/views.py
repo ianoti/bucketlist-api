@@ -12,6 +12,7 @@ from app.serialiser import bucketlistformat
 class LoginUser(Resource):
     """ this class handles the user login and producing the token"""
     def __init__(self):
+        """ add request parser to validate inputs"""
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument('username', type=str, required=True,
                                    location='json', help="username required")
@@ -26,6 +27,7 @@ class LoginUser(Resource):
         user = User.query.filter_by(username=username).first()
         if not user or not user.verify_password(password):
             return {"message": "wrong login details"}, 401
+        # return token as string using decode function
         token = user.generate_confirmation_token(expiry_time)
         return {"token": token.decode("ascii")}, 200
 
@@ -33,6 +35,7 @@ class LoginUser(Resource):
 class RegisterUser(Resource):
     """ this class handles the user registration """
     def __init__(self):
+        """ add request parser to validate inputs"""
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument("username", type=str, required=True,
                                    location="json", help="username required")
@@ -43,6 +46,7 @@ class RegisterUser(Resource):
         super(RegisterUser, self).__init__()
 
     def post(self):
+        """ make a new user """
         args = self.reqparse.parse_args()
         username, password, email = (args["username"].lower(),
                                      args["password"], args["email"])
@@ -68,13 +72,16 @@ class RegisterUser(Resource):
 
 
 class BucketAction(Resource):
+    """ this class handles Bucketlist operations """
     decorators = [token_auth.login_required]
 
     def __init__(self):
+        """ add request parser to validate inputs"""
         self.reqparse = reqparse.RequestParser()
         super(BucketAction, self).__init__()
 
     def post(self, id=None):
+        """ make a new bucketlist"""
         if id:
             abort(400, "bad request")
         self.reqparse.add_argument("name", type=str, required=True,
@@ -82,6 +89,7 @@ class BucketAction(Resource):
                                    help="bucketlist name required")
         args = self.reqparse.parse_args()
         name = args["name"]
+        # validation of user inputs
         if not is_not_empty(name):
             return {"message": "no blank fields allowed"}, 400
         if name.isspace():
@@ -94,6 +102,7 @@ class BucketAction(Resource):
 
     @marshal_with(bucketlistformat)
     def get(self, id=None):
+        """ return bucketlists for user with output formatted by serialiser"""
         search = request.args.get("q") or None
         page = request.args.get("page") or 1
         limit = request.args.get("limit") or 20
@@ -120,6 +129,7 @@ class BucketAction(Resource):
             return bucket_disp, 200
 
     def put(self, id=None):
+        """ edit a bucketlist"""
         if not id:
             return {"message": "bad request"}, 400
         self.reqparse.add_argument("name", type=str, required=True,
@@ -127,6 +137,7 @@ class BucketAction(Resource):
                                    help="bucketlist name required")
         args = self.reqparse.parse_args()
         name = args["name"]
+        # validation of user inputs
         if not is_not_empty(name):
             return {"message": "no blank fields allowed"}, 400
         if name.isspace():
@@ -140,6 +151,7 @@ class BucketAction(Resource):
         return {"message": msg}, 200
 
     def delete(self, id=None):
+        """ delete a bucketlist"""
         if not id:
             abort(400, "bad request")
         bucketlist = Bucketlist.query.filter_by(id=id).first()
@@ -151,18 +163,22 @@ class BucketAction(Resource):
 
 
 class ItemAction(Resource):
+    """ this class handles CRUD operations for items in bucketlist"""
     decorators = [token_auth.login_required]
 
     def __init__(self):
+        """ add request parser to validate inputs"""
         self.reqparse = reqparse.RequestParser()
         super(ItemAction, self).__init__()
 
     def post(self, id=None):
+        """ make a new item """
         self.reqparse.add_argument("name", type=str, required=True,
                                    location="json",
                                    help="Item name required")
         args = self.reqparse.parse_args()
         name = args["name"]
+        # validation of user inputs
         if not is_not_empty(name):
             return {"message": "no blank fields allowed"}, 400
         if name.isspace():
@@ -176,6 +192,7 @@ class ItemAction(Resource):
         return {"message": msg}, 201
 
     def put(self, id=None, item_id=None):
+        """ modify an item given name and status or combination of both"""
         self.reqparse.add_argument("name", type=str, location="json",
                                    help="item name required")
         self.reqparse.add_argument("status", type=inputs.boolean,
@@ -205,6 +222,7 @@ class ItemAction(Resource):
         return {"message": "item has been updated"}, 200
 
     def delete(self, id=None, item_id=None):
+        """ delete the item """
         bucket = Bucketlist.query.filter_by(id=id).first()
         item = Item.query.filter_by(id=item_id).first()
         if not bucket or (bucket.user_id != g.user.id) or not item:
