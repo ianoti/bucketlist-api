@@ -132,3 +132,13 @@ class ItemTest(BaseTestClass):
                                    data=valid_data, headers=self.header,
                                    content_type=self.mime_type)
         self.assertEqual(404, resp_nobckt.status_code)
+
+    def test_bad_request(self):
+        """ test that put command exceptions are handled"""
+        valid_data = json.dumps({"name": "updated list", "status": "true"})
+        resp_invalid = self.app.put("/api/v1/bucketlists/1/items",
+                                    data=valid_data, headers=self.header,
+                                    content_type=self.mime_type)
+        resp_invalid_data = json.loads(resp_invalid.data)
+        self.assertEqual(resp_invalid.status_code, 400)
+        self.assertEqual("bad request", resp_invalid_data["message"])

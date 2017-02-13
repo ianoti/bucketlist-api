@@ -28,7 +28,7 @@ class UserRegisterTest(BaseTestClass):
                                 "email": "johndoe@example.com"})
         response = self.app.post("/api/v1/auth/register", data=data,
                                  content_type=self.mime_type)
-        response_cap = self.app.post("/api/v1/auth/register", data=data,
+        response_cap = self.app.post("/api/v1/auth/register", data=data_name,
                                      content_type=self.mime_type)
         resp_data = json.loads(response.data)
         respcap_data = json.loads(response_cap.data)
@@ -85,32 +85,35 @@ class UserRegisterTest(BaseTestClass):
         self.assertListEqual([400, 400], [response.status_code,
                                           response_data_blank.status_code])
         self.assertIn("allowed in username", resp_data["message"])
-        self.assertIn("spaces not allowed", respblank_data["message"])
+        self.assertIn("password must be 5", respblank_data["message"])
         self.assertEqual(User.query.count(), 2)
 
     def test_blank_arguments_not_allowed(self):
-        """test that registration doesn't accept blank arguments """
+        """test that registration doesn't accept invalid arguments """
         blnk_nme = json.dumps({"username": "", "password": "foobar",
-                               "email": "foobar"})
-        blnk_pass = json.dumps({"username": "", "password": "",
-                                "email": "foobar"})
-        blnk_mail = json.dumps({"username": "", "password": "",
-                                "email": "foobar"})
+                               "email": "foobar@gmail.com"})
+        blnk_pass = json.dumps({"username": "fooname", "password": "",
+                                "email": "foobar@gmail.com"})
+        blnk_mail = json.dumps({"username": "fooname", "password": "foobar",
+                                "email": ""})
+
         resp_nme = self.app.post("/api/v1/auth/register", data=blnk_nme,
                                  content_type=self.mime_type)
         resp_pass = self.app.post("/api/v1/auth/register", data=blnk_pass,
                                   content_type=self.mime_type)
         resp_mail = self.app.post("/api/v1/auth/register", data=blnk_mail,
                                   content_type=self.mime_type)
+
         data_nme = json.loads(resp_nme.data)
         data_pass = json.loads(resp_pass.data)
         data_mail = json.loads(resp_mail.data)
+
         self.assertListEqual([400, 400, 400], [resp_nme.status_code,
                                                resp_pass.status_code,
                                                resp_mail.status_code])
-        self.assertListEqual(["no blank fields allowed",
-                              "no blank fields allowed"],
-                             [data_nme["message"], data_pass["message"]])
+        self.assertIn("allowed in username", data_nme["message"])
+        self.assertIn("password must be", data_pass["message"])
+        self.assertIn("email is invalid", data_mail["message"])
         self.assertEqual(User.query.count(), 2)
 
     def test_email_field_basic_validation(self):

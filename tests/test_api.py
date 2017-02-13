@@ -186,14 +186,21 @@ class BucketlistsTest(BaseTestClass):
         self.assertEqual(404, jhn_bckt.status_code)
         self.assertIn("bucketlist not found", jhn_bcktdata["message"])
 
-    def test_bad_post_route(self):
+    def test_bad_route(self):
         """test won't post if id is provided"""
         name = json.dumps({"name": "something to do"})
-        resp = self.app.post("/api/v1/bucketlists/1", data=name,
-                             headers=self.header, content_type=self.mime_type)
-        resp_data = json.loads(resp.data)
-        self.assertEqual(400, resp.status_code)
-        self.assertEqual("bad request", resp_data["message"])
+        resp_badpst = self.app.post("/api/v1/bucketlists/1", data=name,
+                                    headers=self.header,
+                                    content_type=self.mime_type)
+        resp_badput = self.app.put("/api/v1/bucketlists", data=name,
+                                   headers=self.header,
+                                   content_type=self.mime_type)
+        resp_datapst = json.loads(resp_badpst.data)
+        resp_dataput = json.loads(resp_badput.data)
+        self.assertEqual(400, resp_badpst.status_code)
+        self.assertEqual(400, resp_badput.status_code)
+        self.assertEqual("bad request", resp_datapst["message"])
+        self.assertEqual("bad request", resp_dataput["message"])
 
     def test_search_bucketlist(self):
         """ test that the search functionality works for bucketlists"""
