@@ -6,7 +6,7 @@ from app import db, expiry_time
 from app.models import User, Bucketlist, Item
 from app.authenticate import token_auth, g
 from app.utils import save, delete, is_not_empty
-from app.serialiser import bucketlistformat
+from app.serializer import bucketlistformat
 
 
 class LoginUser(Resource):
